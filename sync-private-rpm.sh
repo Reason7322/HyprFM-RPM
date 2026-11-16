@@ -6,7 +6,7 @@ repo="Reason7322/HyprFM-RPM"
 dest="${HYPRFM_RPM_REPO:-$HOME/.local/share/hyprfm-rpm-repo}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-for bin in gh rpm createrepo_c sha256sum; do
+for bin in gh rpm createrepo_c sha256sum jq; do
   command -v "$bin" >/dev/null || { echo "Missing $bin" >&2; exit 1; }
 done
 tag="$(gh release list --repo "$repo" --limit 100 --json tagName,isLatest |

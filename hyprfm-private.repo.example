@@ -1,0 +1,10 @@
+[hyprfm-private]
+name=Personal HyprFM RPM (private GitHub mirror)
+baseurl=file:///home/reason/.local/share/hyprfm-rpm-repo
+enabled=1
+gpgcheck=0
+metadata_expire=1h
+
+# This is a local, unprivileged mirror of private GitHub release RPMs.
+# gpgcheck=0 is a limitation: metadata transport is local and RPM SHA-256
+# is checked before mirroring, but packages are NOT individually RPM-signed.

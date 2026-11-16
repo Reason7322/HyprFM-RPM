@@ -1,0 +1,6 @@
+[Unit]
+Description=Mirror private HyprFM GitHub RPM release for DNF
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /home/reason/Projects/ChatGPTProjects/HyprFM-RPM/sync-private-rpm.sh

@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh private HyprFM RPM mirror daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=hyprfm-private-sync.service
+
+[Install]
+WantedBy=timers.target
