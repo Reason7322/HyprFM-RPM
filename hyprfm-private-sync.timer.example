@@ -1,5 +1,5 @@
 [Unit]
-Description=Refresh private HyprFM RPM mirror daily
+Description=Check public HyprFM RPM releases daily
 
 [Timer]
 OnCalendar=daily
