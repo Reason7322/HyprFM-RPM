@@ -17,6 +17,82 @@ Personal, **unofficial RPM packaging** for [HyprFM](https://github.com/soyeb-jim
 
 **This repository does not modify or redistribute HyprFM's upstream source as a separate product.** The packaging workflow fetches each exact upstream tag, including its Git submodules, and builds from that source.
 
+## Install on Fedora 45
+
+**Requirements:** Fedora 45 x86_64 and access to this **private** GitHub repository. The RPM is not on Fedora's public repositories, so `sudo dnf install hyprfm` alone will not work until you configure the local DNF repository below.
+
+### One-time installation (RPM download)
+
+1. Install the GitHub CLI if needed and authenticate with a GitHub account that has access to this repository:
+
+   ```bash
+   sudo dnf install gh
+   gh auth login
+   ```
+
+2. Download the **latest private RPM release** into an empty directory and install it:
+
+   ```bash
+   mkdir -p "$HOME/Downloads/hyprfm-rpm"
+   gh release download --repo Reason7322/HyprFM-RPM \
+     --pattern 'hyprfm-[0-9]*.x86_64.rpm' \
+     --dir "$HOME/Downloads/hyprfm-rpm"
+
+   sudo dnf install "$HOME"/Downloads/hyprfm-rpm/hyprfm-*.x86_64.rpm
+   ```
+
+3. Verify the installed package and launch it:
+
+   ```bash
+   rpm -q hyprfm
+   /usr/bin/hyprfm
+   ```
+
+If `command -v hyprfm` points to an older build in `~/.local/bin`, that earlier executable or symlink is taking precedence. Verify which file it refers to before removing it. The RPM's executable is `/usr/bin/hyprfm`.
+
+**Installing a downloaded RPM does not configure future DNF updates.** To receive new versions through your normal `sudo dnf upgrade`, enable the private local mirror as described next.
+
+### Optional: receive updates through DNF
+
+The repository includes a synchronization script and example systemd units. This is a **personal setup**: the examples currently use `/home/reason` and the private repository `Reason7322/HyprFM-RPM`. Adjust those paths and account details for another machine/user.
+
+```bash
+sudo dnf install gh jq createrepo_c
+gh auth status
+gh repo clone Reason7322/HyprFM-RPM "$HOME/Projects/HyprFM-RPM"
+
+# Create a local repository from the latest authenticated private release.
+bash "$HOME/Projects/HyprFM-RPM/sync-private-rpm.sh"
+```
+
+The example `hyprfm-private.repo.example` must reference the actual user's local mirror directory (normally `$HOME/.local/share/hyprfm-rpm-repo`; DNF repository files require an **absolute path**, not an unexpanded shell variable). After reviewing it, copy it to `/etc/yum.repos.d/hyprfm-private.repo` with root privileges:
+
+```bash
+sudo install -m 644 "$HOME/Projects/HyprFM-RPM/hyprfm-private.repo.example" \
+  /etc/yum.repos.d/hyprfm-private.repo
+
+sudo dnf makecache --refresh
+dnf repoquery --available --repo hyprfm-private hyprfm
+```
+
+For daily automatic synchronization, review `hyprfm-private-sync.service.example` and update its `ExecStart` path to your clone location. Then install the service and timer:
+
+```bash
+mkdir -p "$HOME/.config/systemd/user"
+install -m 644 "$HOME/Projects/HyprFM-RPM/hyprfm-private-sync.service.example" \
+  "$HOME/.config/systemd/user/hyprfm-private-sync.service"
+install -m 644 "$HOME/Projects/HyprFM-RPM/hyprfm-private-sync.timer.example" \
+  "$HOME/.config/systemd/user/hyprfm-private-sync.timer"
+
+systemctl --user daemon-reload
+systemctl --user start hyprfm-private-sync.service
+journalctl --user -u hyprfm-private-sync.service -n 30 --no-pager
+# Enable the timer only after the one-shot sync succeeds:
+systemctl --user enable --now hyprfm-private-sync.timer
+```
+
+Once the mirror is synchronized, newer tagged-release RPMs are available during regular `sudo dnf upgrade` runs. The sync timer **does not install upgrades by itself**. GitHub CLI authentication must remain available to the user service.
+
 ## How updates work
 
 1. A scheduled GitHub Actions workflow checks upstream for the newest stable `vX.Y.Z` tag.
