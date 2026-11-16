@@ -1,5 +1,7 @@
 # Private HyprFM Fedora 45 RPM
 
+> ### This package have been 100% vibe coded by OpenAI Codex. Use it at your own discretion.
+
 Scope: Personal-use packaging of stable upstream `vX.Y.Z` tags. The embedded
 Ghostty terminal must be included. No public COPR or public package release.
 
