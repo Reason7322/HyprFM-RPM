@@ -1,6 +1,6 @@
 Name:           hyprfm
 Version:        0.7.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Qt/QML file manager for Wayland desktops
 License:        MIT
 URL:            https://github.com/soyeb-jim285/hyprfm
@@ -32,6 +32,7 @@ This build includes the embedded Ghostty terminal and file-picker portal.
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTS=OFF \
     -DHYPRFM_TERMINAL=ON \
+    -DGHOSTTY_ZIG_BUILD_FLAGS=-Dcpu=baseline \
     -DHYPRFM_ENABLE_QML_CACHEGEN=ON \
     -DHYPRFM_DATA_DIR=%{_datadir}/hyprfm
 %cmake_build
@@ -55,5 +56,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.soyeb_jim28
 %{_datadir}/systemd/user/xdg-desktop-portal-hyprfm.service
 
 %changelog
+* Mon Nov 16 2026 Personal HyprFM RPM Packaging - 0.7.0-2
+- Explicitly compile Zig/Ghostty for baseline x86-64 CPU compatibility
 * Mon Nov 16 2026 Personal HyprFM RPM Packaging - 0.7.0-1
 - Initial draft for Fedora 45 with embedded Ghostty terminal

@@ -34,7 +34,9 @@ jobs:
             sort -V > /tmp/tags
           tag=$(tail -1 /tmp/tags)
           test -n "$tag"
-          if gh release view "$tag" >/dev/null 2>&1; then
+          package_release=$(sed -n 's/^Release:[[:space:]]*\([0-9][0-9]*\).*/\1/p' hyprfm.spec)
+          release_tag="rpm-${tag}-${package_release}.fc45"
+          if gh release view "$release_tag" >/dev/null 2>&1; then
             echo "already_published=true" >> "$GITHUB_OUTPUT"
             echo "Tag $tag already published"
           else
@@ -42,6 +44,7 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
       - name: Install isolated Zig 0.17.1
         if: steps.tag.outputs.already_published == 'false'
         shell: bash
@@ -93,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-[0-9]*.x86_64.rpm' -print -quit)
-          gh release create "${{ steps.tag.outputs.tag }}" "$rpmfile" "$rpmfile.sha256" \
+          gh release create "${{ steps.tag.outputs.release_tag }}" "$rpmfile" "$rpmfile.sha256" \
             --title "HyprFM ${{ steps.tag.outputs.tag }} (Fedora 45 private RPM)" \
             --notes "Private Fedora 45 RPM built from upstream stable tag; embedded terminal enabled." \
             --latest

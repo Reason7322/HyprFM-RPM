@@ -11,7 +11,7 @@ for bin in gh rpm createrepo_c sha256sum jq; do
 done
 tag="$(gh release list --repo "$repo" --limit 100 --json tagName,isLatest |
    jq -r 'map(select(.isLatest == true)) | first | .tagName // empty')"
-[[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "No stable private RPM release available" >&2; exit 2; }
+[[ "$tag" =~ ^rpm-v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+\.fc45$ ]] || { echo "No stable private RPM release available" >&2; exit 2; }
 gh release download "$tag" --repo "$repo" --pattern 'hyprfm-*.x86_64.rpm' --dir "$tmp"
 gh release download "$tag" --repo "$repo" --pattern 'hyprfm-*.rpm.sha256' --dir "$tmp"
 rpmfile="$(find "$tmp" -maxdepth 1 -name 'hyprfm-*.x86_64.rpm' -print -quit)"
