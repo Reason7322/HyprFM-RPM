@@ -1,0 +1,99 @@
+name: Stable HyprFM RPM (Fedora 45)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: hyprfm-stable-rpm
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: fedora:45
+    steps:
+      - name: Install Fedora build tools
+        run: |
+          dnf -y install git gh jq curl tar xz rpm-build rpmdevtools cmake ninja-build gcc-c++ \
+            glib2-devel qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtsvg-devel \
+            desktop-file-utils qt6-qtwayland createrepo_c
+      - name: Checkout private packaging repository
+        uses: actions/checkout@v4
+      - name: Find newest stable upstream tag not yet packaged
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-remote --tags --refs https://github.com/soyeb-jim285/hyprfm.git |
+            awk '{print $2}' | sed 's|refs/tags/||' |
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+            sort -V > /tmp/tags
+          tag=$(tail -1 /tmp/tags)
+          test -n "$tag"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $tag already published"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+      - name: Install isolated Zig 0.17.1
+        if: steps.tag.outputs.already_published == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/zig.tar.xz \
+            https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz
+          mkdir -p /opt/zig
+          tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1
+          echo /opt/zig >> "$GITHUB_PATH"
+          /opt/zig/zig version | grep -Fx 0.17.1
+      - name: Prepare exact tagged source with submodules
+        if: steps.tag.outputs.already_published == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+          bash prepare-sources.sh "${{ steps.tag.outputs.tag }}" /tmp/rpmbuild/SOURCES
+          sed "s/^Version: .*/Version:        ${{ steps.tag.outputs.version }}/" hyprfm.spec \
+            > /tmp/rpmbuild/SPECS/hyprfm.spec
+          grep -F "Version:        ${{ steps.tag.outputs.version }}" /tmp/rpmbuild/SPECS/hyprfm.spec
+      - name: Build RPM including embedded terminal
+        if: steps.tag.outputs.already_published == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          zig version
+          rpmbuild -ba /tmp/rpmbuild/SPECS/hyprfm.spec \
+            --define '_topdir /tmp/rpmbuild'
+          find /tmp/rpmbuild/RPMS -name 'hyprfm-*.rpm' -print
+      - name: Inspect result
+        if: steps.tag.outputs.already_published == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-*.rpm' -print -quit)
+          test -n "$rpmfile"
+          rpm -qpl "$rpmfile" | grep -Fx /usr/bin/hyprfm
+          rpm -qpl "$rpmfile" | grep -Fx /usr/bin/xdg-desktop-portal-hyprfm
+          rpm -qpl "$rpmfile" | grep -F /usr/share/hyprfm/
+          rpm -qp --requires "$rpmfile"
+          sha256sum "$rpmfile" > "$rpmfile.sha256"
+      - name: Publish private tagged release
+        if: steps.tag.outputs.already_published == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-*.rpm' -print -quit)
+          gh release create "${{ steps.tag.outputs.tag }}" "$rpmfile" "$rpmfile.sha256" \
+            --title "HyprFM ${{ steps.tag.outputs.tag }} (Fedora 45 private RPM)" \
+            --notes "Private Fedora 45 RPM built from upstream stable tag; embedded terminal enabled." \
+            --latest
