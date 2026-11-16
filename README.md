@@ -1,128 +1,136 @@
 # HyprFM RPM — Fedora 45 (x86_64)
 
-Personal, **unofficial RPM packaging** for [HyprFM](https://github.com/soyeb-jim285/hyprfm), a Qt 6/QML file manager for Hyprland and other Wayland desktops.
+Unofficial, personal-use Fedora RPM packaging for **[HyprFM](https://github.com/soyeb-jim285/hyprfm)**, a Qt 6/QML file manager for Hyprland and other Wayland desktops.
 
-**Original project:** [soyeb-jim285/hyprfm](https://github.com/soyeb-jim285/hyprfm) — source code, upstream releases, documentation, and bug reports belong there. This repository is **not affiliated with or maintained by the HyprFM developer**.
+**Original project:** [soyeb-jim285/hyprfm](https://github.com/soyeb-jim285/hyprfm). HyprFM's source code, official releases, documentation, and application bug reports are maintained upstream. **This RPM repository is not affiliated with or maintained by the HyprFM developer.**
 
 > ### This package have been 100% vibe coded by OpenAI Codex. Use it at your own discretion.
 
-## What this repository does
-
-- Packages **stable upstream release tags** (such as `v0.7.0`), not arbitrary commits from `main`.
-- Builds native **Fedora 45 x86_64 RPMs** in GitHub Actions using Fedora 45 dependencies.
-- Preserves HyprFM's **built-in Ghostty terminal** and includes the file-picker portal binary.
-- Uses **Zig 0.17.1** for the Ghostty component and `-Dcpu=baseline` for wider x86-64 CPU compatibility.
-- Publishes successful builds as **private GitHub release assets** after verifying the RPM's contents.
-- Provides a script and systemd user-service templates to download the latest private RPM, verify its SHA-256 checksum, and refresh a **local DNF repository**, allowing normal `dnf upgrade` transactions to pick up newer packages.
-
-**This repository does not modify or redistribute HyprFM's upstream source as a separate product.** The packaging workflow fetches each exact upstream tag, including its Git submodules, and builds from that source.
-
 ## Install on Fedora 45
 
-**Requirements:** Fedora 45 x86_64 and access to this **private** GitHub repository. The RPM is not on Fedora's public repositories, so `sudo dnf install hyprfm` alone will not work until you configure the local DNF repository below.
+**Requirements:** Fedora 45, x86_64. **No GitHub account or authentication is required.**
 
-### One-time installation (RPM download)
-
-1. Install the GitHub CLI if needed and authenticate with a GitHub account that has access to this repository:
-
-   ```bash
-   sudo dnf install gh
-   gh auth login
-   ```
-
-2. Download the **latest private RPM release** into an empty directory and install it:
+1. Open the **[latest RPM release](https://github.com/Reason7322/HyprFM-RPM/releases/latest)**.
+2. Under **Assets**, download the main `hyprfm-<version>-<release>.fc45.x86_64.rpm` file (not the checksum or debug packages).
+3. From a terminal, install the downloaded RPM. For example, for version 0.7.0-2:
 
    ```bash
-   mkdir -p "$HOME/Downloads/hyprfm-rpm"
-   gh release download --repo Reason7322/HyprFM-RPM \
-     --pattern 'hyprfm-[0-9]*.x86_64.rpm' \
-     --dir "$HOME/Downloads/hyprfm-rpm"
-
-   sudo dnf install "$HOME"/Downloads/hyprfm-rpm/hyprfm-*.x86_64.rpm
+   sudo dnf install "$HOME/Downloads/hyprfm-0.7.0-2.fc45.x86_64.rpm"
    ```
 
-3. Verify the installed package and launch it:
+   Replace the filename if the published version is newer.
+
+4. Verify and launch:
 
    ```bash
    rpm -q hyprfm
    /usr/bin/hyprfm
    ```
 
-If `command -v hyprfm` points to an older build in `~/.local/bin`, that earlier executable or symlink is taking precedence. Verify which file it refers to before removing it. The RPM's executable is `/usr/bin/hyprfm`.
+If `command -v hyprfm` resolves to an older executable or symlink in `~/.local/bin`, it will take precedence over `/usr/bin/hyprfm`. Check that older file before removing it.
 
-**Installing a downloaded RPM does not configure future DNF updates.** To receive new versions through your normal `sudo dnf upgrade`, enable the private local mirror as described next.
+**A one-time RPM installation does not set up automatic repository synchronization.** To make newer versions available in normal `sudo dnf upgrade` runs, use the optional instructions below.
 
-### Optional: receive updates through DNF
+## Optional: configure DNF updates
 
-The repository includes a synchronization script and example systemd units. This is a **personal setup**: the examples currently use `/home/reason` and the private repository `Reason7322/HyprFM-RPM`. Adjust those paths and account details for another machine/user.
+This repository publishes RPMs through **public GitHub Releases**, but it does **not** host a directly usable public DNF repository. The included script creates a small local DNF mirror and can refresh it daily. It downloads through HTTPS and does not require a GitHub account.
+
+### 1. Prepare the local mirror
 
 ```bash
-sudo dnf install gh jq createrepo_c
-gh auth status
-gh repo clone Reason7322/HyprFM-RPM "$HOME/Projects/HyprFM-RPM"
+sudo dnf install git curl jq createrepo_c
 
-# Create a local repository from the latest authenticated private release.
+mkdir -p "$HOME/Projects"
+git clone https://github.com/Reason7322/HyprFM-RPM.git "$HOME/Projects/HyprFM-RPM"
+
 bash "$HOME/Projects/HyprFM-RPM/sync-private-rpm.sh"
 ```
 
-The example `hyprfm-private.repo.example` must reference the actual user's local mirror directory (normally `$HOME/.local/share/hyprfm-rpm-repo`; DNF repository files require an **absolute path**, not an unexpanded shell variable). After reviewing it, copy it to `/etc/yum.repos.d/hyprfm-private.repo` with root privileges:
+The sync script's filename is retained for compatibility with existing setups; **it now fetches public releases without authentication**. The download is verified against the release's SHA-256 checksum before it is added to `~/.local/share/hyprfm-rpm-repo`.
+
+### 2. Register the local repository with DNF
+
+The `.repo.example` template contains an `@HOME@` placeholder. The following command replaces it with your actual home-directory path:
 
 ```bash
-sudo install -m 644 "$HOME/Projects/HyprFM-RPM/hyprfm-private.repo.example" \
-  /etc/yum.repos.d/hyprfm-private.repo
+sed "s|@HOME@|$HOME|g" "$HOME/Projects/HyprFM-RPM/hyprfm-private.repo.example" \
+  | sudo tee /etc/yum.repos.d/hyprfm-private.repo >/dev/null
 
 sudo dnf makecache --refresh
 dnf repoquery --available --repo hyprfm-private hyprfm
 ```
 
-For daily automatic synchronization, review `hyprfm-private-sync.service.example` and update its `ExecStart` path to your clone location. Then install the service and timer:
+You should see the latest mirrored `hyprfm` RPM listed as an available package.
+
+### 3. Enable daily synchronization (optional)
+
+The systemd service template contains an `@SYNC_SCRIPT@` placeholder. Substitute your own script location and install it alongside the timer:
 
 ```bash
 mkdir -p "$HOME/.config/systemd/user"
-install -m 644 "$HOME/Projects/HyprFM-RPM/hyprfm-private-sync.service.example" \
-  "$HOME/.config/systemd/user/hyprfm-private-sync.service"
+
+sed "s|@SYNC_SCRIPT@|$HOME/Projects/HyprFM-RPM/sync-private-rpm.sh|g" \
+  "$HOME/Projects/HyprFM-RPM/hyprfm-private-sync.service.example" \
+  > "$HOME/.config/systemd/user/hyprfm-private-sync.service"
+
 install -m 644 "$HOME/Projects/HyprFM-RPM/hyprfm-private-sync.timer.example" \
   "$HOME/.config/systemd/user/hyprfm-private-sync.timer"
 
 systemctl --user daemon-reload
 systemctl --user start hyprfm-private-sync.service
 journalctl --user -u hyprfm-private-sync.service -n 30 --no-pager
-# Enable the timer only after the one-shot sync succeeds:
+
+# Enable only after verifying the sync service succeeds:
 systemctl --user enable --now hyprfm-private-sync.timer
+systemctl --user list-timers hyprfm-private-sync.timer
 ```
 
-Once the mirror is synchronized, newer tagged-release RPMs are available during regular `sudo dnf upgrade` runs. The sync timer **does not install upgrades by itself**. GitHub CLI authentication must remain available to the user service.
+The timer runs the local sync **once daily**. The local Git checkout itself does not auto-update; if the packaging scripts change in this repository, run `git -C "$HOME/Projects/HyprFM-RPM" pull --ff-only` to receive those script updates.
 
-## How updates work
+Once a new RPM has synchronized, your normal command installs it:
 
-1. A scheduled GitHub Actions workflow checks upstream for the newest stable `vX.Y.Z` tag.
-2. If that tag and RPM packaging revision have not been built, the workflow creates a Fedora RPM.
-3. A successful build is published as a private release (for example, `rpm-v0.7.0-2.fc45`).
-4. On an authorized PC, `sync-private-rpm.sh` downloads that release via authenticated GitHub CLI, verifies its SHA-256 checksum, and runs `createrepo_c` on the local mirror.
-5. DNF reads that local `file://` repository during normal upgrades.
+```bash
+sudo dnf upgrade
+```
 
-The daily **sync timer only refreshes repository content**; it does **not** automatically install updates. The system only receives new HyprFM versions when you run `sudo dnf upgrade` (or another DNF upgrade operation).
+**The timer does not automatically install new software.** It only refreshes what DNF can see.
+
+## What the packaging does
+
+- Tracks upstream **stable `vX.Y.Z` release tags** instead of individual development commits.
+- Builds **Fedora 45 x86_64** RPMs in GitHub Actions, with the embedded **Ghostty terminal** and file-picker portal included.
+- Uses **Zig 0.17.1** and sets Ghostty's CPU target to `baseline`, to avoid the illegal-instruction crash observed with the initial RPM on an older Ryzen CPU.
+- Publishes successful RPM builds as **public GitHub releases**, after package-content checks.
+- Supplies a local mirroring script plus DNF and systemd templates so normal Fedora upgrades can install newer packages.
+
+## How releases are produced
+
+1. GitHub Actions checks for the latest stable upstream HyprFM release tag daily.
+2. If that tag and RPM packaging revision have not been published, it prepares the tagged sources and submodules.
+3. A Fedora 45 container compiles the RPM with the Ghostty terminal enabled.
+4. Once the build and package checks pass, the RPM and its SHA-256 checksum are published as a public release, for example `rpm-v0.7.0-2.fc45`.
+5. Computers using the optional local mirror fetch the latest published RPM and make it visible to DNF.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| `hyprfm.spec` | Fedora RPM build recipe |
-| `prepare-sources.sh` | Retrieve an exact upstream tag and its submodules |
-| `.github/workflows/stable-rpm.yml` | Check stable tags, build RPM, and publish private releases |
-| `sync-private-rpm.sh` | Authenticated download, checksum verification, and local repo refresh |
-| `hyprfm-private.repo.example` | Example local DNF repository configuration |
-| `hyprfm-private-sync.service.example` | Example systemd user service for syncing |
-| `hyprfm-private-sync.timer.example` | Example daily sync timer |
+| `hyprfm.spec` | Fedora RPM recipe |
+| `prepare-sources.sh` | Fetches an exact upstream tag and its Git submodules |
+| `.github/workflows/stable-rpm.yml` | Stable-tag checking, RPM build, and GitHub release publishing |
+| `sync-private-rpm.sh` | Public RPM download, checksum verification, and local DNF mirror refresh (legacy filename) |
+| `hyprfm-private.repo.example` | Local DNF repository template (legacy filename) |
+| `hyprfm-private-sync.service.example` | systemd user service template (legacy filename) |
+| `hyprfm-private-sync.timer.example` | Daily synchronization timer template (legacy filename) |
 
-## Scope and limitations
+## Limitations and security
 
-- **Personal-use, private GitHub repository.** There is no public COPR or public RPM feed.
-- Targets **Fedora 45 / x86_64** only. Future Fedora versions require adjustments and testing.
-- The local DNF repository currently uses `gpgcheck=0`. The download script checks SHA-256 against a checksum published in the same private release, which is **not equivalent to independent RPM signature verification**.
-- A future HyprFM release may change its build requirements and break automated packaging. A green workflow verifies that an RPM was built and inspected, **not** that every feature has been runtime-tested.
-- HyprFM's file-picker portal is included, but selecting it as the active portal backend requires separate desktop configuration.
+- **Unofficial, community-available packaging.** This is not an official Fedora RPM, COPR, or upstream HyprFM distribution.
+- Currently built for **Fedora 45 x86_64 only**; other Fedora versions need separate builds and testing.
+- The local DNF repo uses **`gpgcheck=0`**. RPMs are **not GPG-signed**. The sync script checks the package against a SHA-256 checksum published alongside it, but this does **not** provide independent publisher authentication. Use at your own discretion.
+- New upstream releases may introduce build failures or runtime regressions. A successful automated build is not proof that all application features were tested.
+- The file-picker portal binary is installed but does not automatically become the selected portal backend.
 
-## Upstream
+## Upstream project
 
-For the original application, documentation, release announcements, and application issues, see **[HyprFM by soyeb-jim285](https://github.com/soyeb-jim285/hyprfm)**.
+Visit **[HyprFM by soyeb-jim285](https://github.com/soyeb-jim285/hyprfm)** for the original application, upstream releases, documentation, and support.
