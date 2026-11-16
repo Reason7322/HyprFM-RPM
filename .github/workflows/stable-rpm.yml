@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-*.rpm' -print -quit)
+          rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-[0-9]*.x86_64.rpm' -print -quit)
           test -n "$rpmfile"
           rpm -qpl "$rpmfile" | grep -Fx /usr/bin/hyprfm
           rpm -qpl "$rpmfile" | grep -Fx /usr/bin/xdg-desktop-portal-hyprfm
@@ -92,7 +92,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-*.rpm' -print -quit)
+          rpmfile=$(find /tmp/rpmbuild/RPMS -name 'hyprfm-[0-9]*.x86_64.rpm' -print -quit)
           gh release create "${{ steps.tag.outputs.tag }}" "$rpmfile" "$rpmfile.sha256" \
             --title "HyprFM ${{ steps.tag.outputs.tag }} (Fedora 45 private RPM)" \
             --notes "Private Fedora 45 RPM built from upstream stable tag; embedded terminal enabled." \
