@@ -4,7 +4,7 @@ Personal, **unofficial RPM packaging** for [HyprFM](https://github.com/soyeb-jim
 
 **Original project:** [soyeb-jim285/hyprfm](https://github.com/soyeb-jim285/hyprfm) — source code, upstream releases, documentation, and bug reports belong there. This repository is **not affiliated with or maintained by the HyprFM developer**.
 
-> This packaging and its automation were AI-assisted. Use at your own discretion. This is a personal project, not an officially supported Fedora package.
+> ### This package have been 100% vibe coded by OpenAI Codex. Use it at your own discretion.
 
 ## What this repository does
 
